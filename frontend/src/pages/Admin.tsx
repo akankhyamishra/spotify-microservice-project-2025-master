@@ -20,6 +20,10 @@ const Admin = () => {
   const [file, setFile] = useState<File | null>(null);
   const [btnLoading, setBtnLoading] = useState<boolean>(false);
 
+  const [importQuery, setImportQuery] = useState<string>("pop hits");
+  const [importLimit, setImportLimit] = useState<number>(20);
+  const [importing, setImporting] = useState<boolean>(false);
+
   const fileChangeHandler = (e: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
     setFile(selectedFile);
@@ -163,6 +167,25 @@ const Admin = () => {
     }
   };
 
+  const importFromItunes = async () => {
+    if (!importQuery.trim()) return;
+    setImporting(true);
+    try {
+      const { data } = await axios.post(
+        `${server}/api/v1/seed`,
+        { query: importQuery, limit: importLimit },
+        { headers: { token: localStorage.getItem("token") } }
+      );
+      toast.success(data.message);
+      fetchAlbums();
+      fetchSongs();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Import failed");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   useEffect(() => {
     if (user && user.role !== "admin") {
       navigate("/");
@@ -176,6 +199,43 @@ const Admin = () => {
       >
         Go to home page
       </Link>
+
+      {/* iTunes Import */}
+      <h2 className="text-2xl font-bold mb-4 mt-8">Import from iTunes</h2>
+      <div className="bg-[#181818] p-6 rounded-lg shadow-lg flex flex-col gap-4 mb-8">
+        <p className="text-gray-400 text-sm">
+          Search iTunes and auto-import real songs, albums and artwork — no file uploads needed.
+        </p>
+        <div className="flex flex-col md:flex-row gap-3">
+          <input
+            type="text"
+            placeholder="e.g. pop hits, taylor swift, jazz, kanye west"
+            className="auth-input flex-1"
+            value={importQuery}
+            onChange={(e) => setImportQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && importFromItunes()}
+          />
+          <select
+            className="auth-input md:w-48"
+            value={importLimit}
+            onChange={(e) => setImportLimit(Number(e.target.value))}
+          >
+            <option value={10}>10 tracks</option>
+            <option value={20}>20 tracks</option>
+            <option value={50}>50 tracks</option>
+          </select>
+          <button
+            className="auth-btn md:w-48"
+            disabled={importing}
+            onClick={importFromItunes}
+          >
+            {importing ? "Importing..." : "Import"}
+          </button>
+        </div>
+        <p className="text-gray-500 text-xs">
+          Uses iTunes 30-second preview URLs as audio. All rights belong to respective owners.
+        </p>
+      </div>
 
       <h2 className="text-2xl font-bold mb-6 mt-6">Add Album</h2>
       <form

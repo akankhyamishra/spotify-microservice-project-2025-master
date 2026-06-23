@@ -7,6 +7,7 @@ import {
   deleteAlbum,
   deleteSong,
 } from "./controller.js";
+import { seedFromItunes } from "./seedController.js";
 
 const router = express.Router();
 
@@ -15,5 +16,6 @@ router.post("/song/new", isAuth, uploadFile, addSong);
 router.post("/song/:id", isAuth, uploadFile, addThumbnail);
 router.delete("/album/:id", isAuth, deleteAlbum);
 router.delete("/song/:id", isAuth, deleteSong);
+router.post("/seed", isAuth, seedFromItunes);
 
 export default router;
