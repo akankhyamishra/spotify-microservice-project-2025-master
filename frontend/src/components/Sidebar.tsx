@@ -1,14 +1,18 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import PlayListCard from "./PlayListCard";
 import { useUserData } from "../context/UserContext";
 import { useSongData } from "../context/SongContext";
 import { FiHome, FiSearch, FiList, FiArrowRight, FiPlus } from "react-icons/fi";
 import { MdDashboard } from "react-icons/md";
+import { FaHeart } from "react-icons/fa";
 
 const Sidebar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useUserData();
   const { albums } = useSongData();
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <div className="w-[260px] h-full flex-col gap-2 text-white hidden lg:flex animate-slide-in-left flex-shrink-0">
@@ -16,13 +20,20 @@ const Sidebar = () => {
       <div className="rounded-2xl p-4 flex flex-col gap-1" style={{ background: "#111111" }}>
         <button
           onClick={() => navigate("/")}
-          className="flex items-center gap-4 px-3 py-2.5 rounded-xl text-white/70 hover:text-white hover:bg-white/8 transition-all duration-200 group"
+          className={`flex items-center gap-4 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+            isActive("/") ? "text-white bg-white/10" : "text-white/70 hover:text-white hover:bg-white/8"
+          }`}
         >
-          <FiHome className="w-5 h-5 group-hover:text-green-400 transition-colors duration-200" />
+          <FiHome className={`w-5 h-5 transition-colors duration-200 ${isActive("/") ? "text-green-400" : "group-hover:text-green-400"}`} />
           <span className="font-semibold text-sm">Home</span>
         </button>
-        <button className="flex items-center gap-4 px-3 py-2.5 rounded-xl text-white/70 hover:text-white hover:bg-white/8 transition-all duration-200 group">
-          <FiSearch className="w-5 h-5 group-hover:text-green-400 transition-colors duration-200" />
+        <button
+          onClick={() => navigate("/search")}
+          className={`flex items-center gap-4 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+            isActive("/search") ? "text-white bg-white/10" : "text-white/70 hover:text-white hover:bg-white/8"
+          }`}
+        >
+          <FiSearch className={`w-5 h-5 transition-colors duration-200 ${isActive("/search") ? "text-green-400" : "group-hover:text-green-400"}`} />
           <span className="font-semibold text-sm">Search</span>
         </button>
       </div>
@@ -42,17 +53,38 @@ const Sidebar = () => {
             <button
               onClick={() => navigate("/playlist")}
               className="w-7 h-7 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/8 transition-all duration-200"
-              title="View playlist"
+              title="Liked songs"
             >
               <FiPlus className="w-4 h-4" />
             </button>
           </div>
         </div>
 
+        {/* Liked songs shortcut */}
+        {user && (
+          <button
+            onClick={() => navigate("/playlist")}
+            className="mx-3 mt-3 flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/8 transition-all group text-left flex-shrink-0"
+          >
+            <div
+              className="w-10 h-10 rounded flex items-center justify-center flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #450af5, #c4efd9)" }}
+            >
+              <FaHeart className="text-white text-sm" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-white text-sm font-medium group-hover:text-green-400 transition-colors">Liked Songs</p>
+              <p className="text-white/40 text-xs">{user.playlist?.length ?? 0} songs</p>
+            </div>
+          </button>
+        )}
+
         {/* Playlist card */}
-        <div className="mx-3 mt-3 rounded-xl overflow-hidden cursor-pointer flex-shrink-0" onClick={() => navigate("/playlist")}>
-          <PlayListCard />
-        </div>
+        {!user && (
+          <div className="mx-3 mt-3 rounded-xl overflow-hidden cursor-pointer flex-shrink-0" onClick={() => navigate("/playlist")}>
+            <PlayListCard />
+          </div>
+        )}
 
         {/* Albums in library */}
         {albums.length > 0 && (
@@ -72,7 +104,7 @@ const Sidebar = () => {
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-white text-sm font-medium truncate group-hover:text-green-400 transition-colors">{album.title}</p>
-                  <p className="text-white/40 text-xs">Album</p>
+                  <p className="text-white/40 text-xs truncate">{album.description}</p>
                 </div>
               </button>
             ))}

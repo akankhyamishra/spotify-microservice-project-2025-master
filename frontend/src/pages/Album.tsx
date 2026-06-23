@@ -3,7 +3,7 @@ import Layout from "../components/Layout";
 import { useSongData } from "../context/SongContext";
 import { useEffect } from "react";
 import Loading from "../components/Loading";
-import { FaBookmark, FaPlay, FaPause } from "react-icons/fa";
+import { FaHeart, FaRegHeart, FaPlay, FaPause, FaUserAlt } from "react-icons/fa";
 import { useUserData } from "../context/UserContext";
 
 const Album = () => {
@@ -11,12 +11,16 @@ const Album = () => {
     fetchAlbumsongs, albumSong, albumData,
     setIsPlaying, setSelectedSong, selectedSong, isPlaying, loading,
   } = useSongData();
-  const { isAuth, addToPlaylist } = useUserData();
+  const { isAuth, addToPlaylist, user, followArtist } = useUserData();
   const params = useParams<{ id: string }>();
 
   useEffect(() => {
     if (params.id) fetchAlbumsongs(params.id);
   }, [params.id]);
+
+  const isFollowing = albumData?.description
+    ? user?.followedArtists?.includes(albumData.description) ?? false
+    : false;
 
   return (
     <Layout>
@@ -39,7 +43,27 @@ const Album = () => {
             <div className="flex flex-col">
               <p className="text-xs font-bold text-white uppercase tracking-widest mb-2">Album</p>
               <h1 className="text-4xl md:text-5xl font-black text-white mb-3 leading-tight">{albumData.title}</h1>
-              <p className="text-white/60 text-sm mb-4">{albumData.description}</p>
+
+              {/* Artist row with follow button */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, #1db954, #7c3aed)" }}>
+                  <FaUserAlt className="text-white text-[10px]" />
+                </div>
+                <span className="text-white text-sm font-semibold">{albumData.description}</span>
+                {isAuth && albumData.description && (
+                  <button
+                    onClick={() => followArtist(albumData.description)}
+                    className={`px-4 py-1 text-xs font-bold rounded-full border transition-all hover:scale-105 active:scale-95 ${
+                      isFollowing
+                        ? "bg-green-500 text-black border-green-500"
+                        : "text-white border-white/40 hover:border-white"
+                    }`}
+                  >
+                    {isFollowing ? "Following" : "Follow"}
+                  </button>
+                )}
+              </div>
+
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-white font-semibold">Spotify Clone</span>
                 <span className="text-white/40">•</span>
@@ -68,13 +92,14 @@ const Album = () => {
           <div className="grid grid-cols-[2rem_1fr_1fr_5rem] gap-4 px-4 py-2 mb-1 border-b border-white/10">
             <span className="text-white/40 text-xs uppercase tracking-wider text-center">#</span>
             <span className="text-white/40 text-xs uppercase tracking-wider">Title</span>
-            <span className="text-white/40 text-xs uppercase tracking-wider hidden sm:block">Description</span>
+            <span className="text-white/40 text-xs uppercase tracking-wider hidden sm:block">Artist</span>
             <span className="text-white/40 text-xs uppercase tracking-wider text-right">Actions</span>
           </div>
 
           {/* Song rows */}
           {albumSong.map((song, index) => {
             const isActive = selectedSong === song.id;
+            const isLiked = user?.playlist?.includes(song.id.toString()) ?? false;
             return (
               <div
                 key={song.id}
@@ -107,7 +132,7 @@ const Album = () => {
                   <span className={`text-sm font-medium truncate ${isActive ? "text-green-400" : "text-white"}`}>{song.title}</span>
                 </div>
 
-                {/* Description */}
+                {/* Artist */}
                 <div className="hidden sm:flex items-center">
                   <p className="text-white/40 text-sm truncate">{song.description?.slice(0, 40)}</p>
                 </div>
@@ -116,11 +141,15 @@ const Album = () => {
                 <div className="flex items-center gap-3 justify-end" onClick={(e) => e.stopPropagation()}>
                   {isAuth && (
                     <button
-                      className="text-white/30 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+                      className={`transition-colors ${isLiked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                       onClick={() => addToPlaylist(song.id)}
-                      title="Save to playlist"
+                      title={isLiked ? "Remove from liked" : "Add to liked songs"}
                     >
-                      <FaBookmark className="w-3.5 h-3.5" />
+                      {isLiked ? (
+                        <FaHeart className="w-3.5 h-3.5 text-green-400" />
+                      ) : (
+                        <FaRegHeart className="w-3.5 h-3.5 text-white/50 hover:text-white" />
+                      )}
                     </button>
                   )}
                   <button

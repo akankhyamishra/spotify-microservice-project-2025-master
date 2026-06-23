@@ -7,6 +7,7 @@ import Register from "./pages/Register";
 import Album from "./pages/Album";
 import PlayList from "./pages/PlayList";
 import Admin from "./pages/Admin";
+import Search from "./pages/Search";
 
 const App = () => {
   const { isAuth, loading } = useUserData();
@@ -18,6 +19,7 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/search" element={<Search />} />
             <Route path="/album/:id" element={<Album />} />
             <Route
               path="/playlist"

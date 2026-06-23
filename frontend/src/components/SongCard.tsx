@@ -1,5 +1,5 @@
 import React from "react";
-import { FaBookmark, FaPlay } from "react-icons/fa";
+import { FaHeart, FaRegHeart, FaPlay } from "react-icons/fa";
 import { useUserData } from "../context/UserContext";
 import { useSongData } from "../context/SongContext";
 
@@ -11,8 +11,10 @@ interface SongCardProps {
 }
 
 const SongCard: React.FC<SongCardProps> = ({ image, name, desc, id }) => {
-  const { addToPlaylist, isAuth } = useUserData();
+  const { addToPlaylist, isAuth, user } = useUserData();
   const { setSelectedSong, setIsPlaying } = useSongData();
+
+  const isLiked = user?.playlist?.includes(id.toString()) ?? false;
 
   return (
     <div
@@ -25,8 +27,10 @@ const SongCard: React.FC<SongCardProps> = ({ image, name, desc, id }) => {
           src={image ? image : "/download.jpeg"}
           className="w-[148px] h-[148px] object-cover transition-transform duration-500 group-hover:scale-110"
           alt={name}
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = "/download.jpeg";
+          }}
         />
-        {/* Bottom gradient on hover */}
         <div
           className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
           style={{
@@ -38,12 +42,19 @@ const SongCard: React.FC<SongCardProps> = ({ image, name, desc, id }) => {
         <div className="absolute bottom-2 left-0 right-0 flex justify-end gap-2 px-2 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
           {isAuth && (
             <button
-              onClick={(e) => { e.stopPropagation(); addToPlaylist(id); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                addToPlaylist(id);
+              }}
               className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90"
               style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}
-              title="Save to playlist"
+              title={isLiked ? "Remove from liked" : "Add to liked songs"}
             >
-              <FaBookmark className="text-white/80 text-xs" />
+              {isLiked ? (
+                <FaHeart className="text-green-400 text-xs" />
+              ) : (
+                <FaRegHeart className="text-white/80 text-xs" />
+              )}
             </button>
           )}
           <button
@@ -66,6 +77,14 @@ const SongCard: React.FC<SongCardProps> = ({ image, name, desc, id }) => {
 
       <p className="font-bold text-sm text-white truncate mb-1">{name}</p>
       <p className="text-xs text-white/45 truncate">{desc}</p>
+
+      {/* Persistent liked indicator */}
+      {isLiked && (
+        <div className="flex items-center gap-1 mt-1">
+          <FaHeart className="text-green-400 text-[10px]" />
+          <span className="text-green-400 text-[10px] font-medium">Liked</span>
+        </div>
+      )}
     </div>
   );
 };

@@ -6,6 +6,7 @@ export interface IUser extends Document {
   password: string;
   role: string;
   playlist: string[];
+  followedArtists: string[];
 }
 
 const schema: Schema<IUser> = new Schema(
@@ -27,11 +28,15 @@ const schema: Schema<IUser> = new Schema(
       type: String,
       default: "user",
     },
-
     playlist: [
       {
         type: String,
         required: true,
+      },
+    ],
+    followedArtists: [
+      {
+        type: String,
       },
     ],
   },

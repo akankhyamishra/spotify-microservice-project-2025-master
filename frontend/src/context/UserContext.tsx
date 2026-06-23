@@ -16,6 +16,7 @@ export interface User {
   email: string;
   role: string;
   playlist: string[];
+  followedArtists: string[];
 }
 
 interface UserContextType {
@@ -36,6 +37,7 @@ interface UserContextType {
   ) => Promise<void>;
   addToPlaylist: (id: string) => void;
   logoutUser: () => Promise<void>;
+  followArtist: (name: string) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -49,6 +51,23 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuth, setIsAuth] = useState(false);
   const [btnLoading, setBtnLoading] = useState(false);
+
+  async function fetchUser() {
+    try {
+      const { data } = await axios.get(`${server}/api/v1/user/me`, {
+        headers: {
+          token: localStorage.getItem("token"),
+        },
+      });
+
+      setUser(data);
+      setIsAuth(true);
+      setLoading(false);
+    } catch (error) {
+      console.log(error);
+      setLoading(false);
+    }
+  }
 
   async function registerUser(
     name: string,
@@ -100,23 +119,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }
 
-  async function fetchUser() {
-    try {
-      const { data } = await axios.get(`${server}/api/v1/user/me`, {
-        headers: {
-          token: localStorage.getItem("token"),
-        },
-      });
-
-      setUser(data);
-      setIsAuth(true);
-      setLoading(false);
-    } catch (error) {
-      console.log(error);
-      setLoading(false);
-    }
-  }
-
   async function logoutUser() {
     localStorage.clear();
     setUser(null);
@@ -144,9 +146,29 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }
 
+  async function followArtist(name: string) {
+    try {
+      const { data } = await axios.post(
+        `${server}/api/v1/artist/follow`,
+        { name },
+        {
+          headers: {
+            token: localStorage.getItem("token"),
+          },
+        }
+      );
+
+      toast.success(data.message);
+      fetchUser();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "An Error Occured");
+    }
+  }
+
   useEffect(() => {
     fetchUser();
   }, []);
+
   return (
     <UserContext.Provider
       value={{
@@ -158,6 +180,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         registerUser,
         logoutUser,
         addToPlaylist,
+        followArtist,
       }}
     >
       {children}

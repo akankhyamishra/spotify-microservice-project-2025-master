@@ -73,6 +73,37 @@ export const myProfile = TryCatch(async (req: AuthenticatedRequest, res) => {
   res.json(user);
 });
 
+export const toggleFollowArtist = TryCatch(
+  async (req: AuthenticatedRequest, res) => {
+    const userId = req.user?._id;
+    const { name } = req.body as { name: string };
+
+    if (!name) {
+      res.status(400).json({ message: "Artist name required" });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    if (!user.followedArtists) user.followedArtists = [];
+
+    const idx = user.followedArtists.indexOf(name);
+    if (idx > -1) {
+      user.followedArtists.splice(idx, 1);
+      await user.save();
+      res.json({ message: "Unfollowed artist" });
+    } else {
+      user.followedArtists.push(name);
+      await user.save();
+      res.json({ message: "Now following " + name });
+    }
+  }
+);
+
 export const addToPlaylist = TryCatch(
   async (req: AuthenticatedRequest, res) => {
     const userId = req.user?._id;
