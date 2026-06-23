@@ -22,9 +22,11 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "redis": "^4.7.0"
+    "redis": "^4.7.0",
+    "amqplib": "^0.10.5"
   },
   "devDependencies": {
+    "@types/amqplib": "^0.10.7",
     "@types/node": "^22.0.0",
     "concurrently": "^9.1.2",
     "nodemon": "^3.1.9",

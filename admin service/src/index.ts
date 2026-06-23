@@ -5,6 +5,7 @@ import adminRoutes from "./route.js";
 import cloudinary from "cloudinary";
 import redis from "redis";
 import cors from "cors";
+import { connectPublisher } from "./config/rabbitmq.js";
 
 dotenv.config();
 
@@ -20,6 +21,8 @@ redisClient
   .connect()
   .then(() => console.log("connected to redis"))
   .catch(console.error);
+
+connectPublisher();
 
 cloudinary.v2.config({
   cloud_name: process.env.Cloud_Name,
