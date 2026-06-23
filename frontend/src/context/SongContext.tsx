@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 
-const server = "https://song-service-uyzg.onrender.com";
+const server = "https://spotify-microservice-project-2025-master.onrender.com";
 
 export interface Song {
   id: string;

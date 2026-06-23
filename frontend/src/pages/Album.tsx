@@ -3,120 +3,147 @@ import Layout from "../components/Layout";
 import { useSongData } from "../context/SongContext";
 import { useEffect } from "react";
 import Loading from "../components/Loading";
-import { FaBookmark, FaPlay } from "react-icons/fa";
+import { FaBookmark, FaPlay, FaPause } from "react-icons/fa";
 import { useUserData } from "../context/UserContext";
 
 const Album = () => {
   const {
-    fetchAlbumsongs,
-    albumSong,
-    albumData,
-    setIsPlaying,
-    setSelectedSong,
-    loading,
+    fetchAlbumsongs, albumSong, albumData,
+    setIsPlaying, setSelectedSong, selectedSong, isPlaying, loading,
   } = useSongData();
-
   const { isAuth, addToPlaylist } = useUserData();
-
   const params = useParams<{ id: string }>();
 
   useEffect(() => {
-    if (params.id) {
-      fetchAlbumsongs(params.id);
-    }
+    if (params.id) fetchAlbumsongs(params.id);
   }, [params.id]);
+
   return (
-    <div>
-      <Layout>
-        {albumData && (
-          <>
-            {loading ? (
-              <Loading />
-            ) : (
-              <>
-                <div className="mt-10 flex gap-8 flex-col md:flex-row md:items-center">
-                  {albumData.thumbnail && (
-                    <img
-                      src={albumData.thumbnail}
-                      className="w-48 rounded"
-                      alt=""
-                    />
+    <Layout>
+      {loading ? (
+        <Loading />
+      ) : albumData ? (
+        <>
+          {/* Header */}
+          <div
+            className="flex gap-6 p-6 rounded-xl mb-6 mt-2 items-end"
+            style={{ background: "linear-gradient(180deg, rgba(29,185,84,0.18) 0%, rgba(29,185,84,0.04) 100%)" }}
+          >
+            <img
+              src={albumData.thumbnail}
+              alt={albumData.title}
+              className="w-44 h-44 rounded-lg object-cover flex-shrink-0"
+              style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}
+              onError={(e) => { (e.target as HTMLImageElement).src = "/download.jpeg"; }}
+            />
+            <div className="flex flex-col">
+              <p className="text-xs font-bold text-white uppercase tracking-widest mb-2">Album</p>
+              <h1 className="text-4xl md:text-5xl font-black text-white mb-3 leading-tight">{albumData.title}</h1>
+              <p className="text-white/60 text-sm mb-4">{albumData.description}</p>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-white font-semibold">Spotify Clone</span>
+                <span className="text-white/40">•</span>
+                <span className="text-white/60">{albumSong.length} song{albumSong.length !== 1 ? "s" : ""}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Play button */}
+          <div className="flex items-center gap-6 px-2 mb-6">
+            <button
+              className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+              style={{ background: "#1db954", boxShadow: "0 8px 24px rgba(29,185,84,0.4)" }}
+              onClick={() => {
+                if (albumSong.length > 0) {
+                  setSelectedSong(albumSong[0].id);
+                  setIsPlaying(true);
+                }
+              }}
+            >
+              <FaPlay className="text-black text-lg ml-1" />
+            </button>
+          </div>
+
+          {/* Table header */}
+          <div className="grid grid-cols-[2rem_1fr_1fr_5rem] gap-4 px-4 py-2 mb-1 border-b border-white/10">
+            <span className="text-white/40 text-xs uppercase tracking-wider text-center">#</span>
+            <span className="text-white/40 text-xs uppercase tracking-wider">Title</span>
+            <span className="text-white/40 text-xs uppercase tracking-wider hidden sm:block">Description</span>
+            <span className="text-white/40 text-xs uppercase tracking-wider text-right">Actions</span>
+          </div>
+
+          {/* Song rows */}
+          {albumSong.map((song, index) => {
+            const isActive = selectedSong === song.id;
+            return (
+              <div
+                key={song.id}
+                className="grid grid-cols-[2rem_1fr_1fr_5rem] gap-4 px-4 py-3 rounded-lg group cursor-pointer transition-all duration-150 song-row"
+                style={{ background: isActive ? "rgba(255,255,255,0.1)" : undefined }}
+                onClick={() => { setSelectedSong(song.id); setIsPlaying(true); }}
+              >
+                {/* Index / eq / play */}
+                <div className="flex items-center justify-center">
+                  {isActive && isPlaying ? (
+                    <div className="flex items-end gap-[2px] h-4">
+                      <div className="eq-bar" /><div className="eq-bar" /><div className="eq-bar" />
+                    </div>
+                  ) : (
+                    <>
+                      <span className={`text-sm group-hover:hidden ${isActive ? "text-green-500" : "text-white/40"}`}>{index + 1}</span>
+                      <FaPlay className="text-white text-xs hidden group-hover:block" />
+                    </>
                   )}
-
-                  <div className="flex flex-col">
-                    <p>PlayList</p>
-                    <h2 className="text-3xl font-bold mb-4 md:text-5xl">
-                      {albumData.title} PlayList
-                    </h2>
-                    <h4>{albumData.description}</h4>
-                    <p className="mt-1">
-                      <img
-                        src="/logo.png"
-                        className="inline-block w-6"
-                        alt=""
-                      />
-                    </p>
-                  </div>
                 </div>
 
-                <div className="grid grid-cols-3 sm:grid-cols-4 mt-10 mb-4 pl-2 text-[#a7a7a7]">
-                  <p>
-                    <b className="mr-4">#</b>
-                  </p>
-                  <p className="hidden sm:block">Description</p>
-                  <p className="text-center">Actions</p>
+                {/* Title + thumbnail */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <img
+                    src={song.thumbnail || "/download.jpeg"}
+                    alt={song.title}
+                    className="w-10 h-10 rounded object-cover flex-shrink-0"
+                    onError={(e) => { (e.target as HTMLImageElement).src = "/download.jpeg"; }}
+                  />
+                  <span className={`text-sm font-medium truncate ${isActive ? "text-green-400" : "text-white"}`}>{song.title}</span>
                 </div>
 
-                <hr />
-                {albumSong &&
-                  albumSong.map((song, index) => {
-                    return (
-                      <div
-                        className="grid grid-cols-3 sm:grid-cols-4 mt-10 mb-4 pl-2 text-[#a7a7a7] hover:bg-[#ffffff2b] cursor-pointer"
-                        key={index}
-                      >
-                        <p className="text-white">
-                          <b className="mr-4 text-[#a7a7a7]">{index + 1}</b>
-                          <img
-                            src={
-                              song.thumbnail ? song.thumbnail : "/download.jpeg"
-                            }
-                            className="inline w-10 mr-5"
-                            alt=""
-                          />{" "}
-                          {song.title}
-                        </p>
-                        <p className="text-[15px] hidden sm:block">
-                          {song.description.slice(0, 30)}...
-                        </p>
-                        <p className="flex justify-center items-center gap-5">
-                          {isAuth && (
-                            <button
-                              className="text-[15px] text-center"
-                              onClick={() => addToPlaylist(song.id)}
-                            >
-                              <FaBookmark />
-                            </button>
-                          )}
-                          <button
-                            className="text-[15px] text-center"
-                            onClick={() => {
-                              setSelectedSong(song.id);
-                              setIsPlaying(true);
-                            }}
-                          >
-                            <FaPlay />
-                          </button>
-                        </p>
-                      </div>
-                    );
-                  })}
-              </>
-            )}
-          </>
-        )}
-      </Layout>
-    </div>
+                {/* Description */}
+                <div className="hidden sm:flex items-center">
+                  <p className="text-white/40 text-sm truncate">{song.description?.slice(0, 40)}</p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-3 justify-end" onClick={(e) => e.stopPropagation()}>
+                  {isAuth && (
+                    <button
+                      className="text-white/30 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+                      onClick={() => addToPlaylist(song.id)}
+                      title="Save to playlist"
+                    >
+                      <FaBookmark className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    className="text-white/30 hover:text-green-500 transition-colors opacity-0 group-hover:opacity-100"
+                    onClick={() => { setSelectedSong(song.id); setIsPlaying(true); }}
+                  >
+                    {isActive && isPlaying ? <FaPause className="w-3.5 h-3.5" /> : <FaPlay className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {albumSong.length === 0 && (
+            <p className="text-white/40 text-sm text-center py-16">No songs in this album yet</p>
+          )}
+        </>
+      ) : (
+        <div className="flex items-center justify-center h-64">
+          <p className="text-white/40">Album not found</p>
+        </div>
+      )}
+    </Layout>
   );
 };
 
