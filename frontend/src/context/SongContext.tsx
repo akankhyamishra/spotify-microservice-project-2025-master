@@ -43,6 +43,7 @@ interface SongContextType {
   fetchAlbumsongs: (id: string) => Promise<void>;
   fetchSongs: () => Promise<void>;
   fetchAlbums: () => Promise<void>;
+  addExternalSong: (song: Song) => void;
 }
 
 const SongContext = createContext<SongContextType | undefined>(undefined);
@@ -57,6 +58,17 @@ export const SongProvider: React.FC<SongProviderProps> = ({ children }) => {
   const [selectedSong, setSelectedSong] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [albums, setAlbums] = useState<Album[]>([]);
+  const [song, setSong] = useState<Song | null>(null);
+  const [index, setIndex] = useState<number>(0);
+  const [albumSong, setAlbumSong] = useState<Song[]>([]);
+  const [albumData, setAlbumData] = useState<Album | null>(null);
+
+  // Holds songs that came from external sources (iTunes search) — not in DB
+  const [externalSongs, setExternalSongs] = useState<Map<string, Song>>(new Map());
+
+  const addExternalSong = useCallback((s: Song) => {
+    setExternalSongs((prev) => new Map(prev).set(s.id, s));
+  }, []);
 
   const fetchSongs = useCallback(async () => {
     setLoading(true);
@@ -72,10 +84,16 @@ export const SongProvider: React.FC<SongProviderProps> = ({ children }) => {
     }
   }, []);
 
-  const [song, setSong] = useState<Song | null>(null);
-
   const fetchSingleSong = useCallback(async () => {
     if (!selectedSong) return;
+
+    // If the song was added externally (iTunes search), use it directly
+    const ext = externalSongs.get(selectedSong);
+    if (ext) {
+      setSong(ext);
+      return;
+    }
+
     try {
       const { data } = await axios.get<Song>(
         `${server}/api/v1/song/${selectedSong}`
@@ -84,7 +102,7 @@ export const SongProvider: React.FC<SongProviderProps> = ({ children }) => {
     } catch (error) {
       console.log(error);
     }
-  }, [selectedSong]);
+  }, [selectedSong, externalSongs]);
 
   const fetchAlbums = useCallback(async () => {
     setLoading(true);
@@ -97,8 +115,6 @@ export const SongProvider: React.FC<SongProviderProps> = ({ children }) => {
       setLoading(false);
     }
   }, []);
-
-  const [index, setIndex] = useState<number>(0);
 
   const nextSong = useCallback(() => {
     if (index === songs.length - 1) {
@@ -116,9 +132,6 @@ export const SongProvider: React.FC<SongProviderProps> = ({ children }) => {
       setSelectedSong(songs[index - 1]?.id.toString());
     }
   }, [index, songs]);
-
-  const [albumSong, setAlbumSong] = useState<Song[]>([]);
-  const [albumData, setAlbumData] = useState<Album | null>(null);
 
   const fetchAlbumsongs = useCallback(async (id: string) => {
     setLoading(true);
@@ -140,6 +153,7 @@ export const SongProvider: React.FC<SongProviderProps> = ({ children }) => {
     fetchSongs();
     fetchAlbums();
   }, []);
+
   return (
     <SongContext.Provider
       value={{
@@ -159,6 +173,7 @@ export const SongProvider: React.FC<SongProviderProps> = ({ children }) => {
         albumSong,
         fetchSongs,
         fetchAlbums,
+        addExternalSong,
       }}
     >
       {children}
