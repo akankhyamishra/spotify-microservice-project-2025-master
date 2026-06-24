@@ -190,6 +190,14 @@ body {
 /* ─── Song table row ─── */
 .song-row:hover { background: rgba(255,255,255,0.06) !important; }
 
+/* ─── Player art glow ring ─── */
+@keyframes playerGlowRing {
+  0%   { transform: scale(1);   opacity: 0.45; }
+  50%  { transform: scale(1.28); opacity: 0; }
+  100% { transform: scale(1);   opacity: 0; }
+}
+.animate-player-ring { animation: playerGlowRing 2.2s ease-out infinite; }
+
 /* ─── Artist hero reveal ─── */
 @keyframes heroReveal {
   from { opacity: 0; transform: scale(1.06); }

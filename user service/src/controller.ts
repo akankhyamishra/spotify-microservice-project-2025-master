@@ -4,6 +4,96 @@ import TryCatch from "./TryCatch.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+// ─── Listening history ────────────────────────────────────────────────────────
+
+export const logListen = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const userId = req.user?._id;
+  const { songId, songTitle, artistName, albumName, thumbnail, platform, listenedFor } =
+    req.body as {
+      songId: string; songTitle: string; artistName: string;
+      albumName: string; thumbnail: string; platform: string; listenedFor: number;
+    };
+
+  const user = await User.findById(userId);
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+
+  // Keep history capped at 200 entries (drop oldest)
+  if (user.listeningHistory.length >= 200) {
+    user.listeningHistory.splice(0, user.listeningHistory.length - 199);
+  }
+
+  user.listeningHistory.push({
+    songId, songTitle, artistName, albumName, thumbnail,
+    playedAt: new Date(),
+    platform: platform || "web",
+    listenedFor: listenedFor || 0,
+  });
+
+  await user.save();
+  res.json({ message: "Listen logged" });
+});
+
+export const getListenHistory = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const user = await User.findById(req.user?._id).select("listeningHistory");
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+  // Return newest first
+  res.json([...user.listeningHistory].reverse());
+});
+
+export const getListenStats = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const user = await User.findById(req.user?._id).select("listeningHistory");
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+
+  const history = user.listeningHistory;
+  const totalTime = history.reduce((sum, e) => sum + (e.listenedFor || 0), 0);
+
+  // Most played artists
+  const artistCount: Record<string, number> = {};
+  history.forEach((e) => {
+    if (e.artistName) artistCount[e.artistName] = (artistCount[e.artistName] || 0) + 1;
+  });
+  const topArtists = Object.entries(artistCount)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }));
+
+  // Hour distribution (when do they listen?)
+  const hourDist: number[] = Array(24).fill(0);
+  history.forEach((e) => {
+    if (e.playedAt) hourDist[new Date(e.playedAt).getHours()]++;
+  });
+
+  res.json({ totalSongsPlayed: history.length, totalListenTime: totalTime, topArtists, hourDist });
+});
+
+// ─── Saved albums ─────────────────────────────────────────────────────────────
+
+export const toggleSaveAlbum = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const user = await User.findById(req.user?._id);
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+
+  const { albumId, albumTitle, artistName, thumbnail } = req.body as {
+    albumId: string; albumTitle: string; artistName: string; thumbnail: string;
+  };
+
+  const idx = user.savedAlbums.findIndex((a) => a.albumId === albumId);
+  if (idx > -1) {
+    user.savedAlbums.splice(idx, 1);
+    await user.save();
+    res.json({ message: "Album removed from library", saved: false });
+  } else {
+    user.savedAlbums.push({ albumId, albumTitle, artistName, thumbnail, savedAt: new Date() });
+    await user.save();
+    res.json({ message: "Album saved to library", saved: true });
+  }
+});
+
+export const getSavedAlbums = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const user = await User.findById(req.user?._id).select("savedAlbums");
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+  res.json([...user.savedAlbums].reverse());
+});
+
 export const registerUser = TryCatch(async (req, res) => {
   const { name, email, password } = req.body;
   let user = await User.findOne({ email });

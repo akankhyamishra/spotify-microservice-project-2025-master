@@ -17,6 +17,7 @@ export interface User {
   role: string;
   playlist: string[];
   followedArtists: string[];
+  savedAlbums: { albumId: string; albumTitle: string; artistName: string; thumbnail: string }[];
 }
 
 interface UserContextType {
@@ -38,6 +39,8 @@ interface UserContextType {
   addToPlaylist: (id: string) => void;
   logoutUser: () => Promise<void>;
   followArtist: (name: string) => Promise<void>;
+  logListen: (song: { songId: string; songTitle: string; artistName: string; albumName: string; thumbnail: string; listenedFor: number }) => Promise<void>;
+  toggleSaveAlbum: (album: { albumId: string; albumTitle: string; artistName: string; thumbnail: string }) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -151,13 +154,38 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       const { data } = await axios.post(
         `${server}/api/v1/artist/follow`,
         { name },
-        {
-          headers: {
-            token: localStorage.getItem("token"),
-          },
-        }
+        { headers: { token: localStorage.getItem("token") } }
       );
+      toast.success(data.message);
+      fetchUser();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "An Error Occured");
+    }
+  }
 
+  async function logListen(song: {
+    songId: string; songTitle: string; artistName: string;
+    albumName: string; thumbnail: string; listenedFor: number;
+  }) {
+    try {
+      const platform = `${navigator.platform} | ${navigator.userAgent.slice(0, 80)}`;
+      await axios.post(
+        `${server}/api/v1/listen`,
+        { ...song, platform },
+        { headers: { token: localStorage.getItem("token") } }
+      );
+    } catch {}
+  }
+
+  async function toggleSaveAlbum(album: {
+    albumId: string; albumTitle: string; artistName: string; thumbnail: string;
+  }) {
+    try {
+      const { data } = await axios.post(
+        `${server}/api/v1/album/save`,
+        album,
+        { headers: { token: localStorage.getItem("token") } }
+      );
       toast.success(data.message);
       fetchUser();
     } catch (error: any) {
@@ -181,6 +209,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         logoutUser,
         addToPlaylist,
         followArtist,
+        logListen,
+        toggleSaveAlbum,
       }}
     >
       {children}
