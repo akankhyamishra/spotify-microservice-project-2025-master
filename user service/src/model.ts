@@ -28,6 +28,7 @@ export interface IUser extends Document {
   followedArtists: string[];
   listeningHistory: IListenEvent[];
   savedAlbums: ISavedAlbum[];
+  customPlaylists: ICustomPlaylist[];
 }
 
 const listenEventSchema = new Schema<IListenEvent>(
@@ -43,6 +44,39 @@ const listenEventSchema = new Schema<IListenEvent>(
   },
   { _id: false }
 );
+
+// ─── Custom playlists ────────────────────────────────────────────────────────
+
+export interface IPlaylistSong {
+  id: string;
+  title: string;
+  artistName: string;
+  thumbnail: string;
+  audio: string; // empty string for DB songs; iTunes preview URL for external tracks
+}
+
+export interface ICustomPlaylist {
+  _id: mongoose.Types.ObjectId;
+  name: string;
+  songs: IPlaylistSong[];
+  createdAt: Date;
+}
+
+const playlistSongSchema = new Schema<IPlaylistSong>(
+  { id: String, title: String, artistName: String, thumbnail: String, audio: String },
+  { _id: false }
+);
+
+const customPlaylistSchema = new Schema<ICustomPlaylist>(
+  {
+    name:    { type: String, required: true },
+    songs:   { type: [playlistSongSchema], default: [] },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const savedAlbumSchema = new Schema<ISavedAlbum>(
   {
@@ -63,8 +97,9 @@ const schema: Schema<IUser> = new Schema(
     role:     { type: String, default: "user" },
     playlist: [{ type: String }],
     followedArtists:  [{ type: String }],
-    listeningHistory: { type: [listenEventSchema], default: [] },
-    savedAlbums:      { type: [savedAlbumSchema],  default: [] },
+    listeningHistory: { type: [listenEventSchema],     default: [] },
+    savedAlbums:      { type: [savedAlbumSchema],      default: [] },
+    customPlaylists:  { type: [customPlaylistSchema],  default: [] },
   },
   { timestamps: true }
 );

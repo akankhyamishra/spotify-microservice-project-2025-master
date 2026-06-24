@@ -10,6 +10,21 @@ import toast, { Toaster } from "react-hot-toast";
 
 const server = "http://localhost:5000";
 
+export interface PlaylistSong {
+  id: string;
+  title: string;
+  artistName: string;
+  thumbnail: string;
+  audio: string;
+}
+
+export interface CustomPlaylist {
+  _id: string;
+  name: string;
+  songs: PlaylistSong[];
+  createdAt: string;
+}
+
 export interface User {
   _id: string;
   name: string;
@@ -18,6 +33,7 @@ export interface User {
   playlist: string[];
   followedArtists: string[];
   savedAlbums: { albumId: string; albumTitle: string; artistName: string; thumbnail: string }[];
+  customPlaylists: CustomPlaylist[];
 }
 
 interface UserContextType {
@@ -41,6 +57,11 @@ interface UserContextType {
   followArtist: (name: string) => Promise<void>;
   logListen: (song: { songId: string; songTitle: string; artistName: string; albumName: string; thumbnail: string; listenedFor: number }) => Promise<void>;
   toggleSaveAlbum: (album: { albumId: string; albumTitle: string; artistName: string; thumbnail: string }) => Promise<void>;
+  createPlaylist: (name: string) => Promise<CustomPlaylist | null>;
+  deletePlaylist: (id: string) => Promise<void>;
+  renamePlaylist: (id: string, name: string) => Promise<void>;
+  addSongToPlaylist: (playlistId: string, song: PlaylistSong) => Promise<void>;
+  removeSongFromPlaylist: (playlistId: string, songId: string) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -193,6 +214,70 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }
 
+  async function createPlaylist(name: string): Promise<CustomPlaylist | null> {
+    try {
+      const { data } = await axios.post(
+        `${server}/api/v1/playlists`,
+        { name },
+        { headers: { token: localStorage.getItem("token") } }
+      );
+      await fetchUser();
+      return data as CustomPlaylist;
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to create playlist");
+      return null;
+    }
+  }
+
+  async function deletePlaylist(id: string) {
+    try {
+      const { data } = await axios.delete(`${server}/api/v1/playlists/${id}`, {
+        headers: { token: localStorage.getItem("token") },
+      });
+      toast.success(data.message);
+      fetchUser();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to delete playlist");
+    }
+  }
+
+  async function renamePlaylist(id: string, name: string) {
+    try {
+      await axios.put(
+        `${server}/api/v1/playlists/${id}/rename`,
+        { name },
+        { headers: { token: localStorage.getItem("token") } }
+      );
+      fetchUser();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to rename playlist");
+    }
+  }
+
+  async function addSongToPlaylist(playlistId: string, song: PlaylistSong) {
+    try {
+      await axios.post(
+        `${server}/api/v1/playlists/${playlistId}/songs`,
+        song,
+        { headers: { token: localStorage.getItem("token") } }
+      );
+      toast.success("Added to playlist");
+      fetchUser();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to add song");
+    }
+  }
+
+  async function removeSongFromPlaylist(playlistId: string, songId: string) {
+    try {
+      await axios.delete(
+        `${server}/api/v1/playlists/${playlistId}/songs/${encodeURIComponent(songId)}`,
+        { headers: { token: localStorage.getItem("token") } }
+      );
+      fetchUser();
+    } catch {}
+  }
+
   useEffect(() => {
     fetchUser();
   }, []);
@@ -211,6 +296,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         followArtist,
         logListen,
         toggleSaveAlbum,
+        createPlaylist,
+        deletePlaylist,
+        renamePlaylist,
+        addSongToPlaylist,
+        removeSongFromPlaylist,
       }}
     >
       {children}

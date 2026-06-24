@@ -10,6 +10,12 @@ import {
   getListenStats,
   toggleSaveAlbum,
   getSavedAlbums,
+  getMyPlaylists,
+  createPlaylist,
+  deletePlaylist,
+  renamePlaylist,
+  addSongToPlaylist,
+  removeSongFromPlaylist,
 } from "./controller.js";
 import { isAuth } from "./middleware.js";
 
@@ -20,7 +26,7 @@ router.post("/user/register", registerUser);
 router.post("/user/login", loginUser);
 router.get("/user/me", isAuth, myProfile);
 
-// Playlist
+// Liked songs (playlist field on user)
 router.post("/song/:id", isAuth, addToPlaylist);
 
 // Artists
@@ -34,5 +40,13 @@ router.get("/listen/stats", isAuth, getListenStats);
 // Saved albums
 router.post("/album/save", isAuth, toggleSaveAlbum);
 router.get("/album/saved", isAuth, getSavedAlbums);
+
+// Custom playlists
+router.get("/playlists", isAuth, getMyPlaylists);
+router.post("/playlists", isAuth, createPlaylist);
+router.delete("/playlists/:id", isAuth, deletePlaylist);
+router.put("/playlists/:id/rename", isAuth, renamePlaylist);
+router.post("/playlists/:id/songs", isAuth, addSongToPlaylist);
+router.delete("/playlists/:id/songs/:songId", isAuth, removeSongFromPlaylist);
 
 export default router;

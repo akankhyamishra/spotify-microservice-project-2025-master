@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { useUserData } from "../context/UserContext";
-import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaUser } from "react-icons/fa";
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const { isAuth, logoutUser } = useUserData();
+  const { isAuth, logoutUser, user } = useUserData();
+  const initials = user?.name?.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) ?? "";
 
   return (
     <div className="animate-fade-in">
@@ -44,12 +45,23 @@ const Navbar = () => {
           </button>
 
           {isAuth ? (
-            <button
-              onClick={() => logoutUser()}
-              className="px-5 py-1.5 text-sm font-bold text-black bg-white rounded-full transition-all duration-200 hover:bg-green-400 hover:scale-[1.04] active:scale-[0.96]"
-            >
-              Logout
-            </button>
+            <>
+              {/* Avatar → profile */}
+              <button
+                onClick={() => navigate("/profile")}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white transition-all hover:scale-110 active:scale-95"
+                style={{ background: "linear-gradient(135deg,#1db954,#7c3aed)" }}
+                title={user?.name}
+              >
+                {initials || <FaUser className="w-3 h-3" />}
+              </button>
+              <button
+                onClick={() => logoutUser()}
+                className="px-5 py-1.5 text-sm font-bold text-black bg-white rounded-full transition-all duration-200 hover:bg-green-400 hover:scale-[1.04] active:scale-[0.96]"
+              >
+                Logout
+              </button>
+            </>
           ) : (
             <button
               onClick={() => navigate("/login")}

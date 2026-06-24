@@ -1,8 +1,10 @@
 import { AuthenticatedRequest } from "./middleware.js";
-import { User } from "./model.js";
+import { User, IPlaylistSong } from "./model.js";
 import TryCatch from "./TryCatch.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { cacheGet, cacheSet, cacheDel } from "./redis.js";
+import { publishEvent } from "./events.js";
 
 // ─── Listening history ────────────────────────────────────────────────────────
 
@@ -92,6 +94,111 @@ export const getSavedAlbums = TryCatch(async (req: AuthenticatedRequest, res) =>
   const user = await User.findById(req.user?._id).select("savedAlbums");
   if (!user) { res.status(404).json({ message: "User not found" }); return; }
   res.json([...user.savedAlbums].reverse());
+});
+
+// ─── Custom playlists ─────────────────────────────────────────────────────────
+
+const PLAYLIST_CACHE_KEY = (uid: string) => `user:playlists:${uid}`;
+
+export const getMyPlaylists = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const uid = req.user?._id?.toString()!;
+  const cached = await cacheGet(PLAYLIST_CACHE_KEY(uid));
+  if (cached) { res.json(JSON.parse(cached)); return; }
+
+  const user = await User.findById(uid).select("customPlaylists");
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+
+  const result = [...user.customPlaylists].reverse();
+  await cacheSet(PLAYLIST_CACHE_KEY(uid), JSON.stringify(result), 300);
+  res.json(result);
+});
+
+export const createPlaylist = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const uid = req.user?._id?.toString()!;
+  const { name } = req.body as { name: string };
+  if (!name?.trim()) { res.status(400).json({ message: "Playlist name required" }); return; }
+
+  const user = await User.findById(uid);
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+
+  user.customPlaylists.push({ name: name.trim(), songs: [], createdAt: new Date() } as any);
+  await user.save();
+  await cacheDel(PLAYLIST_CACHE_KEY(uid));
+
+  const created = user.customPlaylists[user.customPlaylists.length - 1];
+  await publishEvent("user.playlist.created", { userId: uid, playlistId: created._id, name });
+  res.status(201).json(created);
+});
+
+export const deletePlaylist = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const uid = req.user?._id?.toString()!;
+  const { id } = req.params;
+
+  const user = await User.findById(uid);
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+
+  const idx = user.customPlaylists.findIndex((p) => p._id.toString() === id);
+  if (idx === -1) { res.status(404).json({ message: "Playlist not found" }); return; }
+
+  user.customPlaylists.splice(idx, 1);
+  await user.save();
+  await cacheDel(PLAYLIST_CACHE_KEY(uid));
+  await publishEvent("user.playlist.deleted", { userId: uid, playlistId: id });
+  res.json({ message: "Playlist deleted" });
+});
+
+export const renamePlaylist = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const uid = req.user?._id?.toString()!;
+  const { id } = req.params;
+  const { name } = req.body as { name: string };
+
+  const user = await User.findById(uid);
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+
+  const pl = user.customPlaylists.find((p) => p._id.toString() === id);
+  if (!pl) { res.status(404).json({ message: "Playlist not found" }); return; }
+
+  pl.name = name.trim();
+  await user.save();
+  await cacheDel(PLAYLIST_CACHE_KEY(uid));
+  res.json(pl);
+});
+
+export const addSongToPlaylist = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const uid = req.user?._id?.toString()!;
+  const { id } = req.params;
+  const song = req.body as IPlaylistSong;
+
+  const user = await User.findById(uid);
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+
+  const pl = user.customPlaylists.find((p) => p._id.toString() === id);
+  if (!pl) { res.status(404).json({ message: "Playlist not found" }); return; }
+
+  // Avoid duplicates
+  if (pl.songs.some((s) => s.id === song.id)) {
+    res.json({ message: "Song already in playlist" }); return;
+  }
+  pl.songs.push(song);
+  await user.save();
+  await cacheDel(PLAYLIST_CACHE_KEY(uid));
+  res.json({ message: "Song added", playlist: pl });
+});
+
+export const removeSongFromPlaylist = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const uid = req.user?._id?.toString()!;
+  const { id, songId } = req.params;
+
+  const user = await User.findById(uid);
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+
+  const pl = user.customPlaylists.find((p) => p._id.toString() === id);
+  if (!pl) { res.status(404).json({ message: "Playlist not found" }); return; }
+
+  pl.songs = pl.songs.filter((s) => s.id !== songId);
+  await user.save();
+  await cacheDel(PLAYLIST_CACHE_KEY(uid));
+  res.json({ message: "Song removed", playlist: pl });
 });
 
 export const registerUser = TryCatch(async (req, res) => {

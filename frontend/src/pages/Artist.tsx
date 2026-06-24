@@ -80,7 +80,7 @@ const Artist = () => {
         <>
           {/* ── FULL-WIDTH HERO ── */}
           <div
-            className="relative -mx-6 -mt-4 mb-0 overflow-hidden"
+            className="relative -mx-6 -mt-2 mb-0 overflow-hidden"
             style={{ height: 500 }}
           >
             {/* Background image */}

@@ -9,6 +9,8 @@ import PlayList from "./pages/PlayList";
 import Admin from "./pages/Admin";
 import Search from "./pages/Search";
 import Artist from "./pages/Artist";
+import Profile from "./pages/Profile";
+import CustomPlaylist from "./pages/CustomPlaylist";
 
 const App = () => {
   const { isAuth, loading } = useUserData();
@@ -23,19 +25,12 @@ const App = () => {
             <Route path="/search" element={<Search />} />
             <Route path="/artist/:name" element={<Artist />} />
             <Route path="/album/:id" element={<Album />} />
-            <Route
-              path="/playlist"
-              element={isAuth ? <PlayList /> : <Login />}
-            />
-            <Route
-              path="/admin/dashboard"
-              element={isAuth ? <Admin /> : <Login />}
-            />
+            <Route path="/playlist" element={isAuth ? <PlayList /> : <Login />} />
+            <Route path="/playlist/:id" element={isAuth ? <CustomPlaylist /> : <Login />} />
+            <Route path="/profile" element={isAuth ? <Profile /> : <Login />} />
+            <Route path="/admin/dashboard" element={isAuth ? <Admin /> : <Login />} />
             <Route path="/login" element={isAuth ? <Home /> : <Login />} />
-            <Route
-              path="/register"
-              element={isAuth ? <Home /> : <Register />}
-            />
+            <Route path="/register" element={isAuth ? <Home /> : <Register />} />
           </Routes>
         </BrowserRouter>
       )}
