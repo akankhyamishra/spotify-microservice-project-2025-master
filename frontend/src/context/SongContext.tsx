@@ -68,6 +68,8 @@ export const SongProvider: React.FC<SongProviderProps> = ({ children }) => {
 
   const addExternalSong = useCallback((s: Song) => {
     setExternalSongs((prev) => new Map(prev).set(s.id, s));
+    // Persist so the Playlist page can show liked iTunes songs after navigation
+    try { localStorage.setItem(`ext_song_${s.id}`, JSON.stringify(s)); } catch {}
   }, []);
 
   const fetchSongs = useCallback(async () => {
