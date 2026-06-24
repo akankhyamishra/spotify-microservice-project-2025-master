@@ -3,9 +3,7 @@ import Layout from "../components/Layout";
 import { Song, useSongData } from "../context/SongContext";
 import { useUserData } from "../context/UserContext";
 import { useNavigate } from "react-router-dom";
-import {
-  FaSearch, FaPlay, FaHeart, FaRegHeart, FaUserAlt, FaSpinner,
-} from "react-icons/fa";
+import { FaSearch, FaPlay, FaHeart, FaRegHeart, FaSpinner } from "react-icons/fa";
 import axios from "axios";
 
 const GENRE_TILES = [
@@ -30,7 +28,6 @@ interface ItunesTrack {
   collectionName: string;
   artworkUrl100: string;
   previewUrl: string;
-  kind: string;
 }
 
 interface ItunesAlbum {
@@ -88,25 +85,26 @@ const Search = () => {
             params: { term: query, entity: "album", limit: 8, media: "music" },
           }),
         ]);
-
         setItunesTracks(
           (trackRes.data.results as ItunesTrack[]).filter((t) => t.previewUrl)
         );
         setItunesAlbums(albumRes.data.results as ItunesAlbum[]);
       } catch {
-        // iTunes API unreachable — fall back to local only
+        // Fall back to local-only
       } finally {
         setSearchLoading(false);
       }
     }, 350);
   }, [query]);
 
-  // Unique artists from iTunes results
-  const itunesArtists = [
-    ...new Map(
-      itunesTracks.map((t) => [t.artistName, t])
-    ).values(),
-  ].map((t) => t.artistName);
+  // Unique artists: one entry per artist, carry their artwork from a track
+  const artistMap = new Map<string, string>();
+  itunesTracks.forEach((t) => {
+    if (!artistMap.has(t.artistName)) {
+      artistMap.set(t.artistName, t.artworkUrl100.replace("100x100bb", "340x340bb"));
+    }
+  });
+  const uniqueArtists = [...artistMap.entries()]; // [name, artwork]
 
   function playItunesTrack(track: ItunesTrack) {
     const song: Song = {
@@ -139,7 +137,7 @@ const Search = () => {
           placeholder="Search songs, artists, albums..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full pl-12 pr-4 py-3 rounded-full text-white text-sm font-medium outline-none focus:ring-2 focus:ring-green-500 transition-all"
+          className="w-full pl-12 pr-10 py-3 rounded-full text-white text-sm font-medium outline-none focus:ring-2 focus:ring-green-500 transition-all"
           style={{
             background: "rgba(255,255,255,0.1)",
             border: "1px solid rgba(255,255,255,0.12)",
@@ -150,7 +148,7 @@ const Search = () => {
         )}
       </div>
 
-      {/* Genre tiles */}
+      {/* Genre tiles when empty */}
       {!query && (
         <>
           <h2 className="text-xl font-bold text-white mb-4">Browse categories</h2>
@@ -177,30 +175,144 @@ const Search = () => {
         </div>
       )}
 
-      {/* Artists from iTunes */}
-      {itunesArtists.length > 0 && (
+      {/* ── 1. SONGS (iTunes) ───────────────────────────────── */}
+      {itunesTracks.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-xl font-bold text-white">Songs</h2>
+            <span className="text-xs text-white/30 font-medium">worldwide</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {itunesTracks.map((track, i) => {
+              const songId = `itunes_${track.trackId}`;
+              const isLiked = user?.playlist?.includes(songId) ?? false;
+              return (
+                <div
+                  key={track.trackId}
+                  className="flex items-center gap-4 px-3 py-2.5 rounded-lg group hover:bg-white/5 transition-all cursor-pointer"
+                  onClick={() => playItunesTrack(track)}
+                >
+                  <span className="text-white/30 text-sm w-5 text-right group-hover:hidden flex-shrink-0">
+                    {i + 1}
+                  </span>
+                  <FaPlay className="text-white text-xs hidden group-hover:block w-5 flex-shrink-0" />
+                  <img
+                    src={track.artworkUrl100.replace("100x100bb", "60x60bb")}
+                    alt={track.trackName}
+                    className="w-10 h-10 rounded object-cover flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{track.trackName}</p>
+                    <button
+                      className="text-white/40 text-xs truncate hover:text-green-400 hover:underline transition-colors text-left"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/artist/${encodeURIComponent(track.artistName)}`);
+                      }}
+                    >
+                      {track.artistName}
+                    </button>
+                  </div>
+                  <p className="text-white/25 text-xs truncate hidden sm:block max-w-[160px]">
+                    {track.collectionName}
+                  </p>
+                  <div
+                    className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {isAuth && (
+                      <button onClick={() => addToPlaylist(songId)} title={isLiked ? "Unlike" : "Like"}>
+                        {isLiked
+                          ? <FaHeart className="text-green-400 w-3.5 h-3.5" />
+                          : <FaRegHeart className="text-white/50 hover:text-white w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── 2. LOCAL DB SONGS ───────────────────────────────── */}
+      {localSongs.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-xl font-bold text-white">Songs</h2>
+            <span className="text-xs text-white/30 font-medium">your library</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {localSongs.slice(0, 10).map((s, i) => {
+              const isLiked = user?.playlist?.includes(s.id.toString()) ?? false;
+              return (
+                <div
+                  key={s.id}
+                  className="flex items-center gap-4 px-3 py-2.5 rounded-lg group hover:bg-white/5 transition-all cursor-pointer"
+                  onClick={() => { setSelectedSong(s.id); setIsPlaying(true); }}
+                >
+                  <span className="text-white/30 text-sm w-5 text-right group-hover:hidden flex-shrink-0">
+                    {i + 1}
+                  </span>
+                  <FaPlay className="text-white text-xs hidden group-hover:block w-5 flex-shrink-0" />
+                  <img
+                    src={s.thumbnail || "/download.jpeg"}
+                    alt={s.title}
+                    className="w-10 h-10 rounded object-cover flex-shrink-0"
+                    onError={(e) => { (e.target as HTMLImageElement).src = "/download.jpeg"; }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{s.title}</p>
+                    <p className="text-white/40 text-xs truncate">{s.description}</p>
+                  </div>
+                  <div
+                    className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {isAuth && (
+                      <button onClick={() => addToPlaylist(s.id)}>
+                        {isLiked
+                          ? <FaHeart className="text-green-400 w-3.5 h-3.5" />
+                          : <FaRegHeart className="text-white/50 hover:text-white w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── 3. ARTISTS ──────────────────────────────────────── */}
+      {uniqueArtists.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-bold text-white mb-4">Artists</h2>
           <div className="flex gap-4 flex-wrap">
-            {itunesArtists.slice(0, 10).map((artist, i) => {
+            {uniqueArtists.map(([artist, artwork], i) => {
               const isFollowing = user?.followedArtists?.includes(artist) ?? false;
               return (
                 <div
                   key={i}
-                  className="flex flex-col items-center gap-2 p-4 rounded-2xl hover:bg-white/5 transition-all"
-                  style={{ width: 148 }}
+                  className="flex flex-col items-center gap-2 p-4 rounded-2xl hover:bg-white/5 transition-all cursor-pointer group"
+                  style={{ width: 152 }}
+                  onClick={() => navigate(`/artist/${encodeURIComponent(artist)}`)}
                 >
-                  <div
-                    className="w-24 h-24 rounded-full flex items-center justify-center shadow-lg"
-                    style={{ background: "linear-gradient(135deg, #1db954 0%, #7c3aed 100%)" }}
-                  >
-                    <FaUserAlt className="text-white text-2xl" />
+                  {/* Artist photo from their track artwork */}
+                  <div className="w-28 h-28 rounded-full overflow-hidden shadow-lg ring-2 ring-white/10 group-hover:ring-green-500/50 transition-all">
+                    <img
+                      src={artwork}
+                      alt={artist}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
                   </div>
-                  <p className="text-white text-sm font-bold text-center truncate w-full">{artist}</p>
+                  <p className="text-white text-sm font-bold text-center truncate w-full group-hover:text-green-400 transition-colors">
+                    {artist}
+                  </p>
                   <p className="text-white/40 text-xs">Artist</p>
                   {isAuth && (
                     <button
-                      onClick={() => followArtist(artist)}
+                      onClick={(e) => { e.stopPropagation(); followArtist(artist); }}
                       className={`px-4 py-1 text-xs font-bold rounded-full border transition-all hover:scale-105 active:scale-95 ${
                         isFollowing
                           ? "bg-green-500 text-black border-green-500"
@@ -217,153 +329,44 @@ const Search = () => {
         </section>
       )}
 
-      {/* iTunes tracks */}
-      {itunesTracks.length > 0 && (
+      {/* ── 4. ALBUMS ───────────────────────────────────────── */}
+      {(itunesAlbums.length > 0 || localAlbums.length > 0) && (
         <section className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold text-white">Songs</h2>
-            <span className="text-xs text-white/30 font-medium">from iTunes</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            {itunesTracks.map((track, i) => {
-              const songId = `itunes_${track.trackId}`;
-              const isLiked = user?.playlist?.includes(songId) ?? false;
-              return (
-                <div
-                  key={track.trackId}
-                  className="flex items-center gap-4 px-4 py-2.5 rounded-lg group hover:bg-white/5 transition-all cursor-pointer"
-                  onClick={() => playItunesTrack(track)}
-                >
-                  <span className="text-white/30 text-sm w-5 text-right group-hover:hidden">{i + 1}</span>
-                  <FaPlay className="text-white text-xs hidden group-hover:block w-5" />
-                  <img
-                    src={track.artworkUrl100.replace("100x100bb", "60x60bb")}
-                    alt={track.trackName}
-                    className="w-10 h-10 rounded object-cover flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{track.trackName}</p>
-                    <p className="text-white/40 text-xs truncate">{track.artistName}</p>
-                  </div>
-                  <p className="text-white/30 text-xs truncate hidden sm:block max-w-[180px]">{track.collectionName}</p>
-                  <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                    {isAuth && (
-                      <button
-                        onClick={() => addToPlaylist(songId)}
-                        title={isLiked ? "Remove from liked" : "Like"}
-                      >
-                        {isLiked
-                          ? <FaHeart className="text-green-400 w-3.5 h-3.5" />
-                          : <FaRegHeart className="text-white/50 hover:text-white w-3.5 h-3.5" />
-                        }
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* iTunes albums */}
-      {itunesAlbums.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold text-white">Albums</h2>
-            <span className="text-xs text-white/30 font-medium">from iTunes</span>
-          </div>
+          <h2 className="text-xl font-bold text-white mb-4">Albums</h2>
           <div className="flex gap-3 flex-wrap">
             {itunesAlbums.map((album, i) => (
               <div
-                key={i}
-                className="p-3 rounded-2xl cursor-pointer group flex-shrink-0 hover:bg-white/8 transition-all"
+                key={`itunes-${i}`}
+                className="p-3 rounded-2xl flex-shrink-0 hover:bg-white/8 transition-all"
                 style={{ background: "rgba(255,255,255,0.04)", minWidth: 160 }}
               >
-                <div className="relative overflow-hidden rounded-xl mb-3">
-                  <img
-                    src={album.artworkUrl100.replace("100x100bb", "200x200bb")}
-                    alt={album.collectionName}
-                    className="w-[148px] h-[148px] object-cover"
-                  />
-                </div>
+                <img
+                  src={album.artworkUrl100.replace("100x100bb", "200x200bb")}
+                  alt={album.collectionName}
+                  className="w-[148px] h-[148px] object-cover rounded-xl mb-3"
+                />
                 <p className="font-bold text-sm text-white truncate mb-1">{album.collectionName}</p>
-                <p className="text-xs text-white/45 truncate">{album.artistName}</p>
+                <button
+                  className="text-xs text-white/45 truncate hover:text-green-400 hover:underline transition-colors text-left w-full"
+                  onClick={() => navigate(`/artist/${encodeURIComponent(album.artistName)}`)}
+                >
+                  {album.artistName}
+                </button>
               </div>
             ))}
-          </div>
-        </section>
-      )}
-
-      {/* Local DB songs (if any) */}
-      {localSongs.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold text-white">Your Library</h2>
-            <span className="text-xs text-white/30 font-medium">local</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            {localSongs.slice(0, 10).map((s, i) => {
-              const isLiked = user?.playlist?.includes(s.id.toString()) ?? false;
-              return (
-                <div
-                  key={s.id}
-                  className="flex items-center gap-4 px-4 py-2.5 rounded-lg group hover:bg-white/5 transition-all cursor-pointer"
-                  onClick={() => { setSelectedSong(s.id); setIsPlaying(true); }}
-                >
-                  <span className="text-white/30 text-sm w-5 text-right group-hover:hidden">{i + 1}</span>
-                  <FaPlay className="text-white text-xs hidden group-hover:block w-5" />
-                  <img
-                    src={s.thumbnail || "/download.jpeg"}
-                    alt={s.title}
-                    className="w-10 h-10 rounded object-cover flex-shrink-0"
-                    onError={(e) => { (e.target as HTMLImageElement).src = "/download.jpeg"; }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{s.title}</p>
-                    <p className="text-white/40 text-xs truncate">{s.description}</p>
-                  </div>
-                  {isAuth && (
-                    <button
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => { e.stopPropagation(); addToPlaylist(s.id); }}
-                    >
-                      {isLiked
-                        ? <FaHeart className="text-green-400 w-3.5 h-3.5" />
-                        : <FaRegHeart className="text-white/50 hover:text-white w-3.5 h-3.5" />
-                      }
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Local DB albums */}
-      {localAlbums.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold text-white">Albums</h2>
-            <span className="text-xs text-white/30 font-medium">local</span>
-          </div>
-          <div className="flex gap-3 flex-wrap">
-            {localAlbums.slice(0, 8).map((a, i) => (
+            {localAlbums.slice(0, 4).map((a, i) => (
               <div
-                key={i}
+                key={`local-${i}`}
                 onClick={() => navigate(`/album/${a.id}`)}
-                className="p-3 rounded-2xl cursor-pointer group flex-shrink-0 hover:bg-white/8 transition-all"
+                className="p-3 rounded-2xl cursor-pointer flex-shrink-0 hover:bg-white/8 transition-all"
                 style={{ background: "rgba(255,255,255,0.04)", minWidth: 160 }}
               >
-                <div className="relative overflow-hidden rounded-xl mb-3">
-                  <img
-                    src={a.thumbnail || "/download.jpeg"}
-                    alt={a.title}
-                    className="w-[148px] h-[148px] object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).src = "/download.jpeg"; }}
-                  />
-                </div>
+                <img
+                  src={a.thumbnail || "/download.jpeg"}
+                  alt={a.title}
+                  className="w-[148px] h-[148px] object-cover rounded-xl mb-3"
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/download.jpeg"; }}
+                />
                 <p className="font-bold text-sm text-white truncate mb-1">{a.title}</p>
                 <p className="text-xs text-white/45 truncate">{a.description}</p>
               </div>
